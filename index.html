@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Face Off — an emoji game for two</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#fff1ee; --card:#ffffff; --ink:#3a1f2b; --muted:#8a6573; --accent:#e0245e; --accent-ink:#ffffff; --soft:#ffd9e2;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#1d1016; --card:#2b1822; --ink:#ffe9ef; --muted:#c79aab; --accent:#ff5c8a; --accent-ink:#2a0c17; --soft:#4a2433; color-scheme:dark;}
+}
+:root[data-theme="dark"]{--bg:#1d1016; --card:#2b1822; --ink:#ffe9ef; --muted:#c79aab; --accent:#ff5c8a; --accent-ink:#2a0c17; --soft:#4a2433; color-scheme:dark;}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:'Nunito',system-ui,sans-serif;display:flex;justify-content:center;padding:20px 16px}
+main{width:100%;max-width:460px;display:flex;flex-direction:column;gap:16px;align-items:stretch}
+h1{font-family:'Fraunces',Georgia,serif;font-weight:800;font-size:2rem;margin:4px 0 0;text-align:center}
+.names{display:flex;gap:10px}
+.names input{flex:1;min-width:0;border:2px solid var(--soft);background:var(--card);color:var(--ink);border-radius:14px;padding:10px 12px;font:inherit;font-weight:700;text-align:center}
+.names input:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ratio{text-align:center;font-weight:700;color:var(--muted);font-size:.95rem}
+.ratio select{font:inherit;font-weight:800;color:var(--ink);background:var(--card);border:2px solid var(--soft);border-radius:10px;padding:2px 6px}
+.turn{text-align:center;font-weight:700;color:var(--muted);min-height:1.5em}
+.turn b{color:var(--accent)}
+.stage{background:var(--card);border-radius:32px;padding:28px 16px;text-align:center;border:2px solid var(--soft)}
+.emoji{font-size:min(38vw,170px);line-height:1.1;user-select:none}
+.emoji.spin{animation:wob .25s linear infinite}
+.emoji.stopped{animation:pop .35s ease-out}
+@keyframes wob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+@keyframes pop{0%{transform:scale(.6)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+.hint{margin:4px 0 0;color:var(--muted);font-weight:700}
+.q{margin-top:18px;background:var(--soft);border-radius:20px;padding:16px;font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:1.25rem;line-height:1.35}
+.q small{display:block;font-family:'Nunito',sans-serif;font-weight:700;color:var(--muted);font-size:.9rem;margin-bottom:6px}
+.hidden{display:none}
+button.main{border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:800;font-size:1.3rem;padding:18px;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.18)}
+button.main:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.count{text-align:center;color:var(--muted);font-weight:700;font-size:.9rem}
+@media (prefers-reduced-motion:reduce){.emoji.spin,.emoji.stopped{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Face Off 🎭</h1>
+  <div class="names">
+    <input id="p1" placeholder="Your name" autocomplete="off" aria-label="Player 1 name" maxlength="16">
+    <input id="p2" placeholder="Her name" autocomplete="off" aria-label="Player 2 name" maxlength="16">
+  </div>
+  
+  <div class="turn" id="turn"></div>
+  <section class="stage" aria-live="polite">
+    <div class="emoji" id="emoji">🎲</div>
+    <p class="hint" id="hint">Press start, then stop to pick an emoji.</p>
+    <div class="q hidden" id="q"><small id="qwho"></small><span id="qtext"></span></div>
+  </section>
+  <button class="main" id="btn">Start ▶</button>
+  <div class="count" id="count">Rounds played: 0</div>
+</main>
+<script>
+const DATA=[
+["😍","What was your very first impression of me?"],
+["😂","What is the funniest memory we share?"],
+["😭","What is one thing that always makes you emotional?"],
+["😡","What small thing annoys you, and how can I make it easier?"],
+["😴","Describe your perfect lazy day together."],
+["🤔","What is a question you have always wanted to ask me?"],
+["😎","What is something about yourself you are proudly cool at?"],
+["🥺","What is something you need more of from me?"],
+["🤪","What is the silliest thing you would do with me and not feel shy?"],
+["😱","What is your biggest fear about the future?"],
+["🤗","How do you like to be comforted when you're sad?"],
+["😏","What is something you secretly admire about me?"],
+["🥳","What is the best celebration or trip you want us to have?"],
+["🤢","What food or habit of mine would you secretly change?"],
+["😇","What is something kind I did that you never forgot?"],
+["😘","What do you want us to still be doing together in 10 years?"],
+["🤯","What is the most surprising thing you learned about me?"],
+["😬","What is an embarrassing moment you can laugh about now?"],
+["🥰","Finish this: I feel most supported by a friend when..."],
+["🙄","What is one of my funny quirks you secretly adore?"],
+["🤫","Tell me a secret you have never told anyone."],
+["😤","What is a goal you want to push yourself to reach this year?"],
+["🤠","Where would you take me for an adventure, anywhere in the world?"],
+["🥹","What is one thing you are grateful for about our friendship?"],
+["🤩","What is the best moment we have lived together so far?"],
+["😅","What is the most awkward thing that ever happened to us?"],
+["🤓","What is a topic you could talk about for hours?"],
+["🥶","What was the hardest time in your life, and how did you get through it?"],
+["🤑","If you won a million today, what is the first thing you would do?"],
+["🧐","What is something you noticed about me that nobody else does?"],
+["😈","What is the most mischievous thing you did as a kid?"],
+["🤐","What is something you wish you could say more often?"],
+["😌","What makes you feel calm and at peace?"],
+["😵","What is the craziest dream you ever had?"],
+["🤭","What is a funny thing you have never admitted to me?"],
+["😢","When was the last time you cried, and why?"],
+["🙃","What is a silly rule or habit you follow in your life?"],
+["😜","What is the funniest nickname you could give me?"],
+["🥱","What is something boring that you secretly enjoy?"],
+["🤞","What is one wish you hope comes true this year?"],
+["💪","What is something you are proud of yourself for?"],
+["🙏","What is something you would like to forgive or let go of?"],
+["🤝","What is one promise you would make to me as a friend?"],
+["🎬","Which movie or song describes our friendship best?"],
+["🍕","What would be our perfect meal together?"],
+["🌍","What country would you love to visit with me?"],
+["🧠","What is the best advice anyone ever gave you?"],
+["🔥","What is something that really motivates you?"],
+["👀","What is something I do that makes you laugh without trying?"],
+["🫶","What is a lesson you learned from me?"],
+["🦸","If you had one superpower, what would it be and why?"],
+["🕰️","If we could go back to one day of our 8 years, which would it be?"],
+["🌙","What do you think about at night before you sleep?"]
+];
+const $=id=>document.getElementById(id);
+let spinning=false,timer=null,round=0,turn=0,last=-1,seq=0;
+const names=()=>[$('p1').value.trim()||'Player 1',$('p2').value.trim()||'Player 2'];
+function showTurn(){$('turn').textContent='';}
+function start(){
+  spinning=true;$('q').classList.add('hidden');
+  $('emoji').className='emoji spin';$('btn').textContent='Stop ✋';
+  $('hint').textContent='Spinning... press stop when ready!';
+  timer=setInterval(()=>{$('emoji').textContent=DATA[Math.floor(Math.random()*DATA.length)][0];},70);
+}
+function stop(){
+  clearInterval(timer);spinning=false;
+  let i;if(seq<DATA.length){i=seq++;}else{do{i=Math.floor(Math.random()*DATA.length);}while(i===last);}
+  last=i;const n=names();turn=who();
+  $('emoji').textContent=DATA[i][0];$('emoji').className='emoji stopped';
+  $('hint').textContent=n[turn]+', imitate this emoji or answer the question! 🎭';
+  $('qwho').textContent='Then answer, '+n[turn]+':';
+  $('qtext').textContent=DATA[i][1];$('q').classList.remove('hidden');
+  round++;$('count').textContent='Rounds played: '+round;
+  turn=who(round);showTurn();
+  $('btn').textContent='Next round ▶';
+}
+$('btn').addEventListener('click',()=>{
+  if(spinning){stop();return;}
+  const empty=['p1','p2'].find(id=>!$(id).value.trim());
+  if(empty){$('hint').textContent='Write both names first ✍️';$(empty).focus();return;}
+  start();
+});
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('btn').click();}});
+['p1','p2'].forEach(id=>$(id).addEventListener('input',showTurn));
+function who(){return Math.random()<0.65?1:0;}
+
+turn=who(0);
+showTurn();
+</script>
+</body>
+</html>
