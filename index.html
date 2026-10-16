@@ -22,7 +22,11 @@ main{width:100%;max-width:460px;display:flex;flex-direction:column;gap:16px;alig
 h1{font-family:'Fraunces',Georgia,serif;font-weight:800;font-size:2rem;margin:4px 0 0;text-align:center}
 .names{display:flex;gap:10px}
 .names input{flex:1;min-width:0;border:2px solid var(--soft);background:var(--card);color:var(--ink);border-radius:14px;padding:10px 12px;font:inherit;font-weight:700;text-align:center}
-.names input:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.names input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.level-picker{display:grid;gap:6px;text-align:center}
+.level-picker label{font-weight:800}
+.level-picker select{width:100%;border:2px solid var(--soft);border-radius:14px;padding:10px 12px;background:var(--card);color:var(--ink);font:inherit;font-weight:700}
+.level-description{margin:0;color:var(--muted);font-size:.9rem;font-weight:700}
 .ratio{text-align:center;font-weight:700;color:var(--muted);font-size:.95rem}
 .ratio select{font:inherit;font-weight:800;color:var(--ink);background:var(--card);border:2px solid var(--soft);border-radius:10px;padding:2px 6px}
 .turn{text-align:center;font-weight:700;color:var(--muted);min-height:1.5em}
@@ -50,11 +54,21 @@ button.main:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
     <input id="p1" placeholder="Your name" autocomplete="off" aria-label="Player 1 name" maxlength="16">
     <input id="p2" placeholder="Her name" autocomplete="off" aria-label="Player 2 name" maxlength="16">
   </div>
-  
+  <div class="level-picker">
+    <label for="level">Choose a level</label>
+    <select id="level">
+      <option value="icebreakers">Level 1 — Icebreakers</option>
+      <option value="funny">Level 2 — Funny &amp; Silly</option>
+      <option value="memories">Level 3 — Friendship Memories</option>
+      <option value="deep">Level 4 — Deep &amp; Meaningful</option>
+      <option value="wildcard">Level 5 — Wildcard</option>
+    </select>
+    <p class="level-description" id="level-description"></p>
+  </div>
   <div class="turn" id="turn"></div>
   <section class="stage" aria-live="polite">
     <div class="emoji" id="emoji">🎲</div>
-    <p class="hint" id="hint">Press start, then stop to pick an emoji.</p>
+    <p class="hint" id="hint">Press start, then stop to pick a prompt.</p>
     <div class="q hidden" id="q"><small id="qwho"></small><span id="qtext"></span></div>
   </section>
   <button class="main" id="btn">Start ▶</button>
@@ -114,26 +128,57 @@ const DATA=[
 ["🫶","What is a lesson you learned from me?"],
 ["🦸","If you had one superpower, what would it be and why?"],
 ["🕰️","If we could go back to one day of our 8 years, which would it be?"],
-["🌙","What do you think about at night before you sleep?"]
+["🌙","What do you think about at night before you sleep?"],
+["🎤","Give a dramatic 10-second speech about your favorite snack."],
+["💃","Make up a tiny victory dance and teach it to the other player."],
+["🎨","Invent a new emoji and explain what it means."]
 ];
+const LEVELS={
+  icebreakers:{
+    description:'Easy, upbeat prompts to get the conversation started.',
+    questions:[0,5,6,12,22,26,37,44,45,50]
+  },
+  funny:{
+    description:'Silly stories, playful quirks, and plenty of laughs.',
+    questions:[1,4,8,13,17,25,30,33,34,36,38]
+  },
+  memories:{
+    description:'Celebrate favorite moments and the little things you remember.',
+    questions:[14,15,16,19,23,24,29,43,48,49,51]
+  },
+  deep:{
+    description:'Thoughtful questions about feelings, support, and hopes.',
+    questions:[2,3,7,9,10,18,20,27,31,32,35,41,42,52]
+  },
+  wildcard:{
+    description:'Surprise questions and optional mini-challenges—anything goes!',
+    questions:[11,21,28,39,40,46,47,53,54,55]
+  }
+};
 const $=id=>document.getElementById(id);
 let spinning=false,timer=null,round=0,turn=0,last=-1,seq=0;
+const levelQuestions=()=>LEVELS[$('level').value].questions.map(index=>DATA[index]);
 const names=()=>[$('p1').value.trim()||'Player 1',$('p2').value.trim()||'Player 2'];
 function showTurn(){$('turn').textContent='';}
 function start(){
   spinning=true;$('q').classList.add('hidden');
+  $('level').disabled=true;
   $('emoji').className='emoji spin';$('btn').textContent='Stop ✋';
   $('hint').textContent='Spinning... press stop when ready!';
-  timer=setInterval(()=>{$('emoji').textContent=DATA[Math.floor(Math.random()*DATA.length)][0];},70);
+  timer=setInterval(()=>{
+    const data=levelQuestions();
+    $('emoji').textContent=data[Math.floor(Math.random()*data.length)][0];
+  },70);
 }
 function stop(){
-  clearInterval(timer);spinning=false;
-  let i;if(seq<DATA.length){i=seq++;}else{do{i=Math.floor(Math.random()*DATA.length);}while(i===last);}
+  clearInterval(timer);spinning=false;$('level').disabled=false;
+  const data=levelQuestions();
+  let i;if(seq<data.length){i=seq++;}else{do{i=Math.floor(Math.random()*data.length);}while(i===last);}
   last=i;const n=names();turn=who();
-  $('emoji').textContent=DATA[i][0];$('emoji').className='emoji stopped';
-  $('hint').textContent=n[turn]+', imitate this emoji or answer the question! 🎭';
-  $('qwho').textContent='Then answer, '+n[turn]+':';
-  $('qtext').textContent=DATA[i][1];$('q').classList.remove('hidden');
+  $('emoji').textContent=data[i][0];$('emoji').className='emoji stopped';
+  $('hint').textContent=n[turn]+', imitate this emoji or answer the prompt! 🎭';
+  $('qwho').textContent='Your prompt, '+n[turn]+':';
+  $('qtext').textContent=data[i][1];$('q').classList.remove('hidden');
   round++;$('count').textContent='Rounds played: '+round;
   turn=who(round);showTurn();
   $('btn').textContent='Next round ▶';
@@ -144,11 +189,21 @@ $('btn').addEventListener('click',()=>{
   if(empty){$('hint').textContent='Write both names first ✍️';$(empty).focus();return;}
   start();
 });
+function changeLevel(){
+  if(spinning)return;
+  seq=0;last=-1;
+  $('level-description').textContent=LEVELS[$('level').value].description;
+  $('emoji').textContent='🎲';$('emoji').className='emoji';
+  $('hint').textContent='Press start, then stop to pick a prompt.';
+  $('q').classList.add('hidden');
+}
+$('level').addEventListener('change',changeLevel);
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('btn').click();}});
 ['p1','p2'].forEach(id=>$(id).addEventListener('input',showTurn));
 function who(){return Math.random()<0.65?1:0;}
 
 turn=who(0);
+changeLevel();
 showTurn();
 </script>
 </body>
